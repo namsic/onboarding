@@ -1,0 +1,10 @@
+[package]
+name = "raft_node"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+log = "0.4.19"
+rand = "0.8.5"
+# dependencies for develop
+env_logger = "0.10.0"
