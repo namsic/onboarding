@@ -46,19 +46,18 @@ struct State {
 
 impl State {
     fn transition(&mut self, term: u8, role: Role) {
-        log::warn!(
-            "Transition state: ({}: {:?}) => ({}: {:?})",
-            self.term,
-            self.role,
-            term,
-            role
-        );
-        self.term = term;
-        self.role = role;
+        let new_state = Self { term, role };
+        log::warn!("{} => {}", self, new_state,);
+        *self = new_state;
     }
 }
 
-#[derive(Debug)]
+impl std::fmt::Display for State {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "State{{term: {}, role: {}}}", self.term, self.role)
+    }
+}
+
 enum Role {
     /// State responsible for changes that occur within the cluster
     ///
@@ -69,6 +68,17 @@ enum Role {
     ///
     /// Become a leader if node receive more than a quorum vote from other nodes.
     Candidate,
+}
+
+impl std::fmt::Display for Role {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let role = match self {
+            Self::Leader(_) => "leader",
+            Self::Follower => "follower",
+            Self::Candidate => "candidate",
+        };
+        write!(f, "{}", role)
+    }
 }
 
 struct ClusterManager {
@@ -91,7 +101,7 @@ impl ClusterManager {
 
     fn send_heartbeat(&mut self) {
         let Role::Leader(connection_map) = &mut self.state.role else {
-            log::error!("send_heartbeat() by {:?}", self.state.role);
+            log::error!("send_heartbeat() by {}", self.state.role);
             return;
         };
 
@@ -125,7 +135,7 @@ impl ClusterManager {
 
     fn request_vote(&mut self) {
         let Role::Candidate = self.state.role else {
-            log::error!("request_vote() by {:?}", self.state.role);
+            log::error!("request_vote() by {}", self.state.role);
             return;
         };
 
