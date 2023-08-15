@@ -128,6 +128,7 @@ impl ClusterManager {
                 };
                 if let Err(e) = heartbeat_message.write_to(stream) {
                     log::error!("send_heartbeat:write_to: {}", e);
+                    connection_map.remove(id);
                 }
             }
         }
@@ -146,6 +147,7 @@ impl ClusterManager {
             if id == &self.id {
                 continue;
             }
+
             let mut stream = match TcpStream::connect(addr) {
                 Ok(stream) => stream,
                 Err(e) => {
@@ -153,6 +155,7 @@ impl ClusterManager {
                     continue;
                 }
             };
+
             let vote_message = Message {
                 term: self.state.term,
                 body: MessageType::RequestVote,
@@ -161,11 +164,18 @@ impl ClusterManager {
                 log::error!("request_vote:write_to: {}", e);
                 continue;
             }
-            if let Ok(Response::Ack) = Response::read_from(&mut stream) {
-                if let Role::Candidate = self.state.role {
+
+            let vote_response = Response::read_from(&mut stream);
+            match vote_response {
+                Ok(Response::Ack) => {
                     vote += 1;
                 }
-            };
+                Err(e) => {
+                    log::error!("request_vote:read_from: {}", e);
+                    continue;
+                },
+                _ => {},
+            }
             connection_map.insert(*id, stream);
         }
 
@@ -246,11 +256,13 @@ fn state_machine(lock: &Mutex<ClusterManager>, cvar: &Condvar) {
 fn handle_io(lock: &Mutex<ClusterManager>, cvar: &Condvar, mut stream: TcpStream) {
     loop {
         let Ok(message) = Message::read_from(&mut stream) else {
-            continue;
+            return;
         };
 
         let mut guard = lock.lock().unwrap();
-        guard.process_message(message).write_to(&mut stream);
+        if guard.process_message(message).write_to(&mut stream).is_err() {
+            return;
+        }
 
         match &guard.state.role {
             Role::Leader(_) => { /* commit */ }

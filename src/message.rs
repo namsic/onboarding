@@ -68,17 +68,18 @@ impl Response {
         }
     }
 
-    pub fn write_to(&self, stream: &mut TcpStream) {
+    pub fn write_to(&self, stream: &mut TcpStream) -> Result<()> {
         match self {
             Response::Ack => {
-                stream.write_all(&[0]).unwrap();
+                stream.write_all(&[0])?;
             }
             Response::Nack => {
-                stream.write_all(&[1]).unwrap();
+                stream.write_all(&[1])?;
             }
             Response::ImNotLeader => {
-                stream.write_all(&[2]).unwrap();
+                stream.write_all(&[2])?;
             }
         }
+        Ok(())
     }
 }
